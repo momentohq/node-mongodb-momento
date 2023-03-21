@@ -1,15 +1,15 @@
-import { App, CfnOutput, Stack, StackProps } from 'aws-cdk-lib'
-import { HttpLambdaIntegration } from '@aws-cdk/aws-apigatewayv2-integrations-alpha'
-import { Construct } from 'constructs'
-import { PlayersFunction } from './players-function'
-import { HttpApi, HttpMethod } from '@aws-cdk/aws-apigatewayv2-alpha'
-import { lambda } from './lambda'
-import dotenv from 'dotenv'
-dotenv.config()
+import { HttpApi, HttpMethod } from '@aws-cdk/aws-apigatewayv2-alpha';
+import { HttpLambdaIntegration } from '@aws-cdk/aws-apigatewayv2-integrations-alpha';
+import { App, CfnOutput, Stack, StackProps } from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import dotenv from 'dotenv';
+import { lambda } from './lambda';
+import { PlayersFunction } from './players-function';
+dotenv.config();
 
 export class MyStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps = {}) {
-    super(scope, id, props)
+    super(scope, id, props);
 
 
     const players = new HttpLambdaIntegration(
@@ -24,17 +24,17 @@ export class MyStack extends Stack {
           },
         },
         PlayersFunction,
-      )
-    )
+      ),
+    );
 
-    const httpApi = new HttpApi(this, 'HttpApi')
-    new CfnOutput(this, "PlayerUrl", { value: `${httpApi.url!}players` })
+    const httpApi = new HttpApi(this, 'HttpApi');
+    new CfnOutput(this, 'PlayerUrl', { value: `${httpApi.url!}players` });
 
     httpApi.addRoutes({
       path: '/players',
       methods: [HttpMethod.GET, HttpMethod.POST],
       integration: players,
-    })
+    });
   }
 }
 
@@ -42,11 +42,11 @@ export class MyStack extends Stack {
 const devEnv = {
   account: process.env.AWS_ACCOUNT_ID,
   region: 'us-west-2',
-}
+};
 
-const app = new App()
+const app = new App();
 
-new MyStack(app, 'momento-mongodb-read-cache-dev', { env: devEnv })
+new MyStack(app, 'momento-mongodb-read-cache-dev', { env: devEnv });
 // new MyStack(app, 'momento-mongodb-read-cache-prod', { env: prodEnv });
 
-app.synth()
+app.synth();

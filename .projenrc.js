@@ -7,11 +7,13 @@ const project = new awscdk.AwsCdkTypeScriptApp({
   name: 'momento-mongodb-read-cache',
 
   deps: [
-    'mongoose',
+    '@aws-cdk/aws-apigatewayv2-alpha',
+    '@aws-cdk/aws-apigatewayv2-integrations-alpha',
     '@gomomento/sdk',
-    'axios',
     'aws-lambda',
-    'dotenv'
+    'axios',
+    'dotenv',
+    'mongoose',
   ],
   lambdaOptions: {
     runtime: LambdaRuntime.NODEJS_18_X,
@@ -19,8 +21,6 @@ const project = new awscdk.AwsCdkTypeScriptApp({
   },
   devDeps: [
     'prettier',
-    '@aws-cdk/aws-apigatewayv2-alpha',
-    '@aws-cdk/aws-apigatewayv2-integrations-alpha',
     '@types/aws-lambda',
   ],
   // description: undefined,  /* The description is just a string that helps people understand the purpose of the package. */

@@ -1,14 +1,6 @@
 {
   "dependencies": [
     {
-      "name": "@aws-cdk/aws-apigatewayv2-alpha",
-      "type": "build"
-    },
-    {
-      "name": "@aws-cdk/aws-apigatewayv2-integrations-alpha",
-      "type": "build"
-    },
-    {
       "name": "@types/aws-lambda",
       "type": "build"
     },
@@ -90,6 +82,14 @@
     {
       "name": "typescript",
       "type": "build"
+    },
+    {
+      "name": "@aws-cdk/aws-apigatewayv2-alpha",
+      "type": "runtime"
+    },
+    {
+      "name": "@aws-cdk/aws-apigatewayv2-integrations-alpha",
+      "type": "runtime"
     },
     {
       "name": "@gomomento/sdk",
