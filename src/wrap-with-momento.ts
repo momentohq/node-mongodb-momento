@@ -18,7 +18,7 @@ export default function wrapWithMomento() {
 
     const exec = mongoose.Query.prototype.exec
 
-    mongoose.Query.prototype.exec = async function () {
+    mongoose.Query.prototype.exec = async function (this: any) {
         if (!['count', 'countDocuments', 'find', 'findOne', 'distinct'].includes(this.op)) {
             // only cache read operations
             return exec.apply(this)

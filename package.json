@@ -23,7 +23,8 @@
     "test:watch": "npx projen test:watch",
     "upgrade": "npx projen upgrade",
     "watch": "npx projen watch",
-    "projen": "npx projen"
+    "projen": "npx projen",
+    "demo": "npx ts-node index.ts 500"
   },
   "devDependencies": {
     "@aws-cdk/aws-apigatewayv2-alpha": "^2.68.0-alpha.0",
