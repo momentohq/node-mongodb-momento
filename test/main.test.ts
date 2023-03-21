@@ -5,6 +5,7 @@ import { connect, disconnect } from 'mongoose';
 import { addScore, getLeaders } from '../src/players.lambda';
 import { setCaching } from '../src/wrap-with-momento';
 
+const REQUESTS = 100;
 
 test('MongoDB with no cache at all', async () => {
   setCaching(false);
@@ -15,10 +16,10 @@ test('MongoDB with no cache at all', async () => {
   }
 
   let start = new Date();
-  for (let count = 0; count < 50; count++) {
+  for (let count = 0; count < REQUESTS; count++) {
     await getLeaders('uncached');
   }
-  console.log(`50 reads without cache: ${(new Date()).getTime() - start.getTime()}ms elapsed`);
+  console.log(`${REQUESTS} reads without cache: ${(new Date()).getTime() - start.getTime()}ms elapsed`);
 
   await disconnect();
 }, 15000);
@@ -28,10 +29,10 @@ test('MongoDB with a high hit rate for Momento cache', async () => {
   await connect(`${process.env.MONGODB_URI!}/${process.env.COLLECTION_NAME}`, { connectTimeoutMS: 1000 });
 
   let start = new Date();
-  for (let count = 0; count < 50; count++) {
+  for (let count = 0; count < REQUESTS; count++) {
     await getLeaders('cached');
   }
-  console.log(`50 reads with cache: ${(new Date()).getTime() - start.getTime()}ms elapsed`);
+  console.log(`${REQUESTS} reads with cache: ${(new Date()).getTime() - start.getTime()}ms elapsed`);
 
   await disconnect();
 }, 15000);
@@ -41,10 +42,10 @@ test('MongoDB with a 0 hit rate for Momento cache', async () => {
   await connect(`${process.env.MONGODB_URI!}/${process.env.COLLECTION_NAME}`, { connectTimeoutMS: 1000 });
 
   let start = new Date();
-  for (let count = 0; count < 50; count++) {
+  for (let count = 0; count < REQUESTS / 2; count++) {
     await getLeaders(`cached${count}`);
   }
-  console.log(`50 reads with cache: ${(new Date()).getTime() - start.getTime()}ms elapsed`);
+  console.log(`${REQUESTS / 2} reads with cache: ${(new Date()).getTime() - start.getTime()}ms elapsed`);
 
   await disconnect();
 }, 15000);
