@@ -19,6 +19,18 @@ const runQueries = async (times: number, useCache: boolean): Promise<number[]> =
 
   const queryTimes: number[] = [];
 
+  //
+  // Run the quries in parallel
+  //
+  // const arr = Array(times).fill(0);
+  // await Promise.all(arr.map(async () => {
+  //   const randomAirline = airlines[Math.floor(Math.random() * airlines.length)];
+  //   const start = Date.now();
+  //   await Route.find({ 'airline.name': randomAirline });
+  //   const end = Date.now();
+  //   queryTimes.push(end - start);
+  // }));
+
   for (let i = 0; i < times; i++) {
     if (i % 100 == 0) {
       console.log(`Iteration ${i}`);
