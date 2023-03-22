@@ -1,8 +1,10 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import wrapWithMomento from './src/wrap-with-momento';
+import wrapWithMomento, { Results } from './src/wrap-with-momento';
 import axios from 'axios';
 import Route from './models/route';
+import path from 'path';
+import { exec } from 'child_process';
 
 dotenv.config();
 
@@ -35,7 +37,7 @@ const runQueries = async (times: number, useCache: boolean): Promise<number[]> =
 
 const generateHtml = async (
   numQueries: number,
-  stats: { [key: string]: { avg: number; p99: number; min: number; max: number; median: number; stdDev: number } }): Promise<string> => {
+  stats: { [key: string]: { avg: number; p99: number; min: number; max: number; median: number; stdDev: number, count: number } }): Promise<string> => {
   const { data } = await axios.get('https://cdn.jsdelivr.net/npm/chart.js');
 
   return `
@@ -57,11 +59,12 @@ const generateHtml = async (
         const comparisonChart = new Chart(ctx, {
           type: 'bar',
           data: {
-            labels: ['Average Duration', 'P99', 'Min', 'Max', 'Median', 'Std Dev'],
+            labels: ['# of Requests', 'Average Duration (ms)', 'P99 (ms)', 'Min (ms)', 'Max (ms)', 'Median (ms)', 'Std Dev (ms)'],
             datasets: [
               {
                 label: 'Without Cache',
                 data: [
+                  ${stats.withoutCache.count},
                   ${stats.withoutCache.avg},
                   ${stats.withoutCache.p99},
                   ${stats.withoutCache.min},
@@ -74,17 +77,33 @@ const generateHtml = async (
                 borderWidth: 1
               },
               {
-                label: 'With Cache',
+                label: 'With Cache (Hits)',
                 data: [
-                  ${stats.withCache.avg},
-                  ${stats.withCache.p99},
-                  ${stats.withCache.min},
-                  ${stats.withCache.max},
-                  ${stats.withCache.median},
-                  ${stats.withCache.stdDev},
+                  ${stats.cacheHits.count},
+                  ${stats.cacheHits.avg},
+                  ${stats.cacheHits.p99},
+                  ${stats.cacheHits.min},
+                  ${stats.cacheHits.max},
+                  ${stats.cacheHits.median},
+                  ${stats.cacheHits.stdDev},
                 ],
                 backgroundColor: 'rgba(255, 206, 86, 0.2)',
                 borderColor: 'rgba(255, 206, 86, 1)',
+                borderWidth: 1
+              },
+              {
+                label: 'With Cache (Misses)',
+                data: [
+                  ${stats.cacheMisses.count},
+                  ${stats.cacheMisses.avg},
+                  ${stats.cacheMisses.p99},
+                  ${stats.cacheMisses.min},
+                  ${stats.cacheMisses.max},
+                  ${stats.cacheMisses.median},
+                  ${stats.cacheMisses.stdDev},
+                ],
+                backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                borderColor: 'rgba(153, 102, 255, 1)',
                 borderWidth: 1
               }
             ]
@@ -104,6 +123,7 @@ const generateHtml = async (
 };
 
 const analyzeQueryTimes = (queryTimes: number[]) => {
+  const count = queryTimes.length;
   const sum = queryTimes.reduce((a, b) => a + b, 0);
   const avg = sum / queryTimes.length;
   const min = Math.min(...queryTimes);
@@ -113,24 +133,33 @@ const analyzeQueryTimes = (queryTimes: number[]) => {
   queryTimes.sort((a, b) => a - b);
   const p99 = queryTimes[Math.floor(queryTimes.length * 0.99)];
   const median = queryTimes[Math.floor(queryTimes.length * 0.5)];
-  return { avg, p99, min, max, median, stdDev };
+  return { avg, p99, min, max, median, stdDev, count };
 };
 
 (async () => {
   const numQueries = parseInt(process.argv[2], 10);
 
   const timesWithoutCache = await runQueries(numQueries, false);
-  const timesWithCache = await runQueries(numQueries, true);
+  await runQueries(numQueries, true);
 
   const stats = {
     withoutCache: analyzeQueryTimes(timesWithoutCache),
-    withCache: analyzeQueryTimes(timesWithCache),
+    cacheHits: analyzeQueryTimes(Results.hits),
+    cacheMisses: analyzeQueryTimes(Results.misses)
   };
 
   const html = await generateHtml(numQueries, stats);
 
-  // Save the generated HTML to a file
-  require('fs').writeFileSync('performance_comparison.html', html);
+  // Save the generated HTML to a file and open it in a browser
+  const filename = 'performance_comparison.html';
+  require('fs').writeFileSync(filename, html);
+  const filePath = path.join(__dirname, filename);
 
-  console.log('HTML file generated: performance_comparison.html');
+  const command = process.platform == 'win32' ? 'start' : 'open';
+  exec(`${command} ${filePath}`);
+
+  console.log('Completed the demo. Analytic summary:\n');
+  console.log('MongoDB only\n', '-------------------\n', `Average duration: ${Math.round(stats.withoutCache.avg)}ms\n`, `P99: ${stats.withoutCache.p99}ms\n`, `Median: ${stats.withoutCache.median}ms\n`, `Minimum: ${stats.withoutCache.min}ms\n`, `Maximum: ${stats.withoutCache.max}ms\n`);
+  console.log(`Momento Cache Hits (${Math.round(((stats.cacheHits.count / numQueries) * 100))}%)\n`, '-------------------\n', `Average duration: ${Math.round(stats.cacheHits.avg)}ms\n`, `P99: ${stats.cacheHits.p99}ms\n`, `Median: ${stats.cacheHits.median}ms\n`, `Minimum: ${stats.cacheHits.min}ms\n`, `Maximum: ${stats.cacheHits.max}ms\n`);
+  console.log(`Momento Cache Misses (${Math.round(((stats.cacheMisses.count / numQueries) * 100))}%)\n`, '-------------------\n', `Average duration: ${Math.round(stats.cacheMisses.avg)}ms\n`, `P99: ${stats.cacheMisses.p99}ms\n`, `Median: ${stats.cacheMisses.median}ms\n`, `Minimum: ${stats.cacheMisses.min}ms\n`, `Maximum: ${stats.cacheMisses.max}ms`);
 })();

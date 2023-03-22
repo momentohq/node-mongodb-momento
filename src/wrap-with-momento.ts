@@ -7,6 +7,16 @@ import {
     CredentialProvider,
 } from '@gomomento/sdk'
 
+interface CacheResults {
+    hits: number[],
+    misses: number[]
+}
+
+export let Results: CacheResults = {
+    hits: [],
+    misses: []
+};
+
 export default function wrapWithMomento() {
     const momento = new CacheClient({
         configuration: Configurations.InRegion.LowLatency.v1(),
@@ -19,6 +29,7 @@ export default function wrapWithMomento() {
     const exec = mongoose.Query.prototype.exec
 
     mongoose.Query.prototype.exec = async function (this: any) {
+        const start = Date.now();
         if (!['count', 'countDocuments', 'find', 'findOne', 'distinct'].includes(this.op)) {
             // only cache read operations
             return exec.apply(this)
@@ -34,6 +45,8 @@ export default function wrapWithMomento() {
         const getResponse = await momento.get(process.env.COLLECTION_NAME!, key)
         if (getResponse instanceof CacheGet.Hit) {
             //console.log(`cache hit: ${(getResponse as CacheGet.Hit).valueString().length} chars`)
+            const end = Date.now();
+            Results.hits.push(end - start);
             return (JSON.parse((getResponse as CacheGet.Hit).valueString()) as [object]).map(
                 x => this.model.hydrate(x)
             )
@@ -45,7 +58,6 @@ export default function wrapWithMomento() {
         }
 
         const result = await exec.apply(this)
-
         if (result) {
             const setResponse = await momento.set(process.env.COLLECTION_NAME!, key, JSON.stringify(result))
             if (setResponse instanceof CacheSet.Success) {
@@ -54,6 +66,8 @@ export default function wrapWithMomento() {
                 console.log(`Error setting key: ${setResponse.toString()}`)
             }
         }
+        const end = Date.now();
+        Results.misses.push(end - start);
         return result
     }
 }
