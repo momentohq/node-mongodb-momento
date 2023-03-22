@@ -1,6 +1,8 @@
 import { HttpApi, HttpMethod } from '@aws-cdk/aws-apigatewayv2-alpha';
 import { HttpLambdaIntegration } from '@aws-cdk/aws-apigatewayv2-integrations-alpha';
-import { App, CfnOutput, Stack, StackProps } from 'aws-cdk-lib';
+import * as targets from 'aws-cdk-lib/aws-events-targets'
+import * as events from 'aws-cdk-lib/aws-events'
+import { App, CfnOutput, Duration, Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import dotenv from 'dotenv';
 import { lambda } from './lambda';
@@ -11,11 +13,27 @@ export class MyStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps = {}) {
     super(scope, id, props);
 
+    const benchFunction = lambda(
+      this, 'Benchmark',
+      {
+        environment: {
+          COLLECTION_NAME: process.env.COLLECTION_NAME,
+          MONGODB_URI: process.env.MONGODB_URI,
+          MOMENTO_AUTH_TOKEN: process.env.MOMENTO_AUTH_TOKEN,
+        },
+      },
+      PlayersFunction,
+    )
+
+    const eventRule = new events.Rule(this, 'scheduleRule', {
+      schedule: events.Schedule.rate(Duration.minutes(1)),
+    });
+    eventRule.addTarget(new targets.LambdaFunction(benchFunction))
 
     const players = new HttpLambdaIntegration(
       'PlayersIntegration',
       lambda(
-        this, 'Leaders',
+        this, 'LeaderBoard',
         {
           environment: {
             COLLECTION_NAME: process.env.COLLECTION_NAME,

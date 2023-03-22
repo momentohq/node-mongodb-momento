@@ -1,6 +1,6 @@
 import { Context, APIGatewayProxyEventV2 } from 'aws-lambda';
 import { Schema, model, connect } from 'mongoose';
-import wrapWithMomento from './wrap-with-momento';
+import wrapWithMomento, { setCaching } from './wrap-with-momento';
 
 interface IPlayer {
   game: string;
@@ -37,10 +37,39 @@ export const getLeaders = async (game: string) => {
   return players;
 };
 
-export const handler = async (event: APIGatewayProxyEventV2, _: Context) => {
-  // console.log(event.requestContext?.http?.path)
-  let name = event.queryStringParameters;
-  console.log(name);
+const submitMetric = (start: Date, awsRequestId: string, cached: boolean) => {
+  const now = (new Date()).getTime()
+  console.log(JSON.stringify({
+    "_aws": {
+      "Timestamp": now,
+      "CloudWatchMetrics": [
+        {
+          "Namespace": "momento-mongodb",
+          "Dimensions": [["cached"]],
+          "Metrics": [
+            {
+              "Name": "duration",
+              "Unit": "Milliseconds",
+              "StorageResolution": 60
+            }
+          ]
+        }
+      ]
+    },
+    "cached": cached ? 'momento' : 'mongodb',
+    "duration": now - start.getTime(),
+    "requestId": awsRequestId
+  }))
+}
+
+export const handler = async (event: any, context: Context) => {
+  if (event.requestContext === null || event.requestContext === undefined) {
+    await benchMark(context)
+    return {}
+  }
+
+  event = event as APIGatewayProxyEventV2
+
   if (event.queryStringParameters === undefined) {
     return { error: 'Provide query string params ?game=... to list scores, or ?game=...&name=... to score' };
   }
@@ -60,4 +89,28 @@ export const handler = async (event: APIGatewayProxyEventV2, _: Context) => {
   }
 
   return { elapsed: (new Date()).getTime() - start.getTime(), game, result };
+};
+
+const benchMark = async (context: Context) => {
+  const game = "benchmark";
+
+  await connect(`${process.env.MONGODB_URI!}/${process.env.COLLECTION_NAME}`, { connectTimeoutMS: 1000 });
+  await addScore(game, 'test')
+  await getLeaders(game);
+
+  let start;
+  setCaching(true)
+  for (let count = 0; count < 1200; count++) {
+    start = new Date();
+    await getLeaders(game);
+    submitMetric(start, context.awsRequestId, true)
+  }
+
+  setCaching(false)
+
+  for (let count = 0; count < 1200; count++) {
+    start = new Date();
+    await getLeaders(game);
+    submitMetric(start, context.awsRequestId, false)
+  }
 };
